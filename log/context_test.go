@@ -24,11 +24,7 @@ func TestFromContext(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), loggerKey, zap.New(core))
 
-	logger, err := FromContext(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	logger.Info("test message", zap.String("foo", "bar"))
+	FromContext(ctx).Info("test message", zap.String("foo", "bar"))
 
 	entries := logs.AllUntimed()
 	if len(entries) != 1 {

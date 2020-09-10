@@ -2,7 +2,6 @@ package log
 
 import (
 	"context"
-	"errors"
 
 	"go.uber.org/zap"
 )
@@ -13,10 +12,10 @@ func WithContext(ctx context.Context, logger *zap.Logger) context.Context {
 	return context.WithValue(ctx, loggerKey, logger)
 }
 
-func FromContext(ctx context.Context) (*zap.Logger, error) {
+func FromContext(ctx context.Context) *zap.Logger {
 	if logger, ok := ctx.Value(loggerKey).(*zap.Logger); ok {
-		return logger, nil
+		return logger
 	}
 
-	return nil, errors.New("logger not found")
+	return zap.NewNop()
 }

@@ -6,6 +6,12 @@ import (
 	"go.uber.org/zap"
 )
 
+var defaultLogger = zap.NewNop()
+
+func SetDefaultLogger(logger *zap.Logger) {
+	defaultLogger = logger
+}
+
 var loggerKey = struct{}{}
 
 func WithContext(ctx context.Context, logger *zap.Logger) context.Context {
@@ -17,5 +23,5 @@ func FromContext(ctx context.Context) *zap.Logger {
 		return logger
 	}
 
-	return zap.NewNop()
+	return defaultLogger
 }

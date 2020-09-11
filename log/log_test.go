@@ -5,7 +5,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	_, err := New()
+	_, err := New("test")
 	if err != nil {
 		t.Fatal(err)
 	}

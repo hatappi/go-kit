@@ -25,6 +25,12 @@ func WithOutputPaths(paths []string) Option {
 	}
 }
 
+func WithErrorOutputPaths(paths []string) Option {
+	return func(conf *zap.Config) {
+		conf.ErrorOutputPaths = paths
+	}
+}
+
 func New(service string, opts ...Option) (*zap.Logger, error) {
 	config := zap.NewProductionConfig()
 

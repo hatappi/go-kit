@@ -34,7 +34,7 @@ func NewS3(bucketName string, prefixPath string, region string) (*S3, error) {
 	}, nil
 }
 
-func (s *S3) Save(filePath string, data []byte) (string, error) {
+func (s *S3) Save(ctx context.Context, filePath string, data []byte) (string, error) {
 	key := s.objectKey(filePath)
 	input := &s3.PutObjectInput{
 		Body:   bytes.NewReader(data),
@@ -42,7 +42,6 @@ func (s *S3) Save(filePath string, data []byte) (string, error) {
 		Key:    aws.String(key),
 	}
 
-	ctx := context.Background()
 	if _, err := s.s3Service.PutObjectWithContext(ctx, input); err != nil {
 		return "", err
 	}
@@ -50,7 +49,7 @@ func (s *S3) Save(filePath string, data []byte) (string, error) {
 	return key, nil
 }
 
-func (s *S3) Get(filePath string) ([]byte, error) {
+func (s *S3) Get(ctx context.Context, filePath string) ([]byte, error) {
 	key := s.objectKey(filePath)
 
 	input := &s3.GetObjectInput{
@@ -58,7 +57,6 @@ func (s *S3) Get(filePath string) ([]byte, error) {
 		Key:    aws.String(key),
 	}
 
-	ctx := context.Background()
 	o, err := s.s3Service.GetObjectWithContext(ctx, input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -80,14 +78,14 @@ func (s *S3) Get(filePath string) ([]byte, error) {
 	return resBody, nil
 }
 
-func (s *S3) Ping() error {
+func (s *S3) Ping(ctx context.Context) error {
 	filepath := "ping"
 
-	if _, err := s.Save(filepath, []byte("test")); err != nil {
+	if _, err := s.Save(ctx, filepath, []byte("test")); err != nil {
 		return err
 	}
 
-	ok, err := s.exist(filepath)
+	ok, err := s.exist(ctx, filepath)
 	if err != nil {
 		return err
 	}
@@ -100,7 +98,7 @@ func (s *S3) Ping() error {
 		Key:    aws.String(s.objectKey(filepath)),
 	}
 
-	if _, err := s.s3Service.DeleteObject(input); err != nil {
+	if _, err := s.s3Service.DeleteObjectWithContext(ctx, input); err != nil {
 		return err
 	}
 
@@ -111,7 +109,7 @@ func (s *S3) objectKey(filePath string) string {
 	return path.Join(s.prefixPath, filePath)
 }
 
-func (s *S3) exist(filePath string) (bool, error) {
+func (s *S3) exist(ctx context.Context, filePath string) (bool, error) {
 	key := s.objectKey(filePath)
 
 	input := &s3.GetObjectInput{
@@ -119,7 +117,6 @@ func (s *S3) exist(filePath string) (bool, error) {
 		Key:    aws.String(key),
 	}
 
-	ctx := context.Background()
 	_, err := s.s3Service.GetObjectWithContext(ctx, input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {

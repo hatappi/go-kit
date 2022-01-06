@@ -42,6 +42,11 @@ func (d *Disk) Save(ctx context.Context, filePath string, data []byte) (string, 
 func (d *Disk) Get(ctx context.Context, filePath string) ([]byte, error) {
 	savePath := path.Join(d.rootDir, filePath)
 
+	_, err := os.Stat(savePath)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+
 	raw, err := ioutil.ReadFile(savePath)
 	if err != nil {
 		return nil, err

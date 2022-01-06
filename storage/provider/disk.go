@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path"
@@ -17,7 +18,7 @@ func NewDisk(root string) *Disk {
 	}
 }
 
-func (d *Disk) Save(filePath string, data []byte) (string, error) {
+func (d *Disk) Save(ctx context.Context, filePath string, data []byte) (string, error) {
 	savePath := path.Join(d.rootDir, filePath)
 
 	if err := os.MkdirAll(filepath.Dir(savePath), 0755); err != nil {
@@ -38,7 +39,7 @@ func (d *Disk) Save(filePath string, data []byte) (string, error) {
 	return savePath, nil
 }
 
-func (d *Disk) Get(filePath string) ([]byte, error) {
+func (d *Disk) Get(ctx context.Context, filePath string) ([]byte, error) {
 	savePath := path.Join(d.rootDir, filePath)
 
 	raw, err := ioutil.ReadFile(savePath)
@@ -49,7 +50,7 @@ func (d *Disk) Get(filePath string) ([]byte, error) {
 	return raw, nil
 }
 
-func (d *Disk) Ping() error {
+func (d *Disk) Ping(ctx context.Context) error {
 	pingFilePath := path.Join(d.rootDir, "ping")
 
 	fp, err := os.Create(pingFilePath)

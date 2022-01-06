@@ -1,15 +1,16 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/hatappi/go-kit/storage/provider"
 )
 
 type Storage interface {
-	Save(filePath string, data []byte) (string, error)
-	Get(filePath string) ([]byte, error)
-	Ping() error
+	Save(ctx context.Context, filePath string, data []byte) (string, error)
+	Get(ctx context.Context, filePath string) ([]byte, error)
+	Ping(ctx context.Context) error
 }
 
 func NewStorage(serviceName string, conf *Config) (Storage, error) {

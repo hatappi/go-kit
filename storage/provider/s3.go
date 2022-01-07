@@ -3,7 +3,7 @@ package provider
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"path"
 
@@ -36,6 +36,7 @@ func NewS3(bucketName string, prefixPath string, region string) (*S3, error) {
 
 func (s *S3) Save(ctx context.Context, filePath string, data []byte) (string, error) {
 	key := s.objectKey(filePath)
+
 	input := &s3.PutObjectInput{
 		Body:   bytes.NewReader(data),
 		Bucket: aws.String(s.bucketName),
@@ -78,27 +79,38 @@ func (s *S3) Get(ctx context.Context, filePath string) ([]byte, error) {
 	return resBody, nil
 }
 
-func (s *S3) Ping(ctx context.Context) error {
-	filepath := "ping"
-
-	if _, err := s.Save(ctx, filepath, []byte("test")); err != nil {
-		return err
-	}
-
-	ok, err := s.exist(ctx, filepath)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("file does not exist")
-	}
+func (s *S3) Delete(ctx context.Context, filePath string) error {
+	key := s.objectKey(filePath)
 
 	input := &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucketName),
-		Key:    aws.String(s.objectKey(filepath)),
+		Key:    aws.String(key),
 	}
 
 	if _, err := s.s3Service.DeleteObjectWithContext(ctx, input); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *S3) Ping(ctx context.Context) error {
+	filePath := "ping"
+
+	if _, err := s.Save(ctx, filePath, []byte("test")); err != nil {
+		return err
+	}
+
+	b, err := s.Get(ctx, filePath)
+	if err != nil {
+		return err
+	}
+
+	if b == nil {
+		return errors.New("file does not exist")
+	}
+
+	if err := s.Delete(ctx, filePath); err != nil {
 		return err
 	}
 

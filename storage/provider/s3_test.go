@@ -182,6 +182,69 @@ func TestS3Get(t *testing.T) {
 	}
 }
 
+func TestS3Delete(t *testing.T) {
+	type args struct {
+		filepath string
+	}
+
+	testCases := []struct {
+		name                        string
+		args                        args
+		mockDeleteObjectWithContext func(aws.Context, *s3.DeleteObjectInput, ...request.Option) (*s3.DeleteObjectOutput, error)
+		wantErr                     bool
+	}{
+		{
+			name: "success",
+			args: args{
+				filepath: "foo",
+			},
+			mockDeleteObjectWithContext: func(ctx aws.Context, input *s3.DeleteObjectInput, opts ...request.Option) (*s3.DeleteObjectOutput, error) {
+				expected := &s3.DeleteObjectInput{
+					Bucket: aws.String("test_bucket"),
+					Key:    aws.String("test_prefix/foo"),
+				}
+
+				if d := cmp.Diff(*expected, *input); d != "" {
+					t.Fatalf("unexpected input. %s", d)
+				}
+
+				return &s3.DeleteObjectOutput{}, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "fail",
+			args: args{
+				filepath: "foo",
+			},
+			mockDeleteObjectWithContext: func(ctx aws.Context, input *s3.DeleteObjectInput, opts ...request.Option) (*s3.DeleteObjectOutput, error) {
+				return nil, fmt.Errorf("error")
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			s3Provider := &S3{
+				bucketName: "test_bucket",
+				prefixPath: "test_prefix",
+				s3Service: &mockS3Client{
+					mockDeleteObjectWithContext: tc.mockDeleteObjectWithContext,
+				},
+			}
+
+			ctx := context.Background()
+			err := s3Provider.Delete(ctx, tc.args.filepath)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("err: %v", err)
+			}
+		})
+	}
+}
+
 func TestS3Ping(t *testing.T) {
 	testCases := []struct {
 		name                        string

@@ -72,6 +72,35 @@ func TestDiskGet(t *testing.T) {
 	}
 }
 
+func TestDiskDelete(t *testing.T) {
+	dir, err := ioutil.TempDir("", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	file, err := os.Create(path.Join(dir, "test.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	diskProvider := &Disk{
+		rootDir: dir,
+	}
+
+	ctx := context.Background()
+	err = diskProvider.Delete(ctx, "test.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = os.Stat(path.Join(dir, "test.txt"))
+	if os.IsExist(err) {
+		t.Fatal("file was not deleted")
+	}
+}
+
 func TestDiskPing(t *testing.T) {
 	dir, err := ioutil.TempDir("", "test")
 	if err != nil {

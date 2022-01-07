@@ -10,6 +10,7 @@ import (
 type Storage interface {
 	Save(ctx context.Context, filePath string, data []byte) (string, error)
 	Get(ctx context.Context, filePath string) ([]byte, error)
+	Delete(ctx context.Context, filePath string) error
 	Ping(ctx context.Context) error
 }
 

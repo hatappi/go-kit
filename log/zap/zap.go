@@ -46,7 +46,7 @@ func NewLogger(loggerName string, opts ...Option) (logr.Logger, error) {
 
 	zaplog, err := config.Build()
 	if err != nil {
-		return logr.Discard(), err
+		return logr.Logger{}, err
 	}
 
 	logger := zapr.NewLogger(zaplog).WithName(loggerName)

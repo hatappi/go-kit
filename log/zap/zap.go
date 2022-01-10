@@ -17,7 +17,7 @@ func WithInitialFields(fields map[string]interface{}) Option {
 	}
 }
 
-func NewLogger(name string, opts ...Option) (logr.Logger, error) {
+func NewLogger(loggerName string, opts ...Option) (logr.Logger, error) {
 	config := zap.Config{
 		Development:      false,
 		Level:            zap.NewAtomicLevelAt(zap.InfoLevel),
@@ -25,8 +25,18 @@ func NewLogger(name string, opts ...Option) (logr.Logger, error) {
 		OutputPaths:      []string{"stdout"},
 		ErrorOutputPaths: []string{"stderr"},
 		EncoderConfig: zapcore.EncoderConfig{
+			TimeKey:        "ts",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			FunctionKey:    zapcore.OmitKey,
+			MessageKey:     "message",
+			StacktraceKey:  "stacktrace",
 			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.LowercaseLevelEncoder,
+			EncodeTime:     zapcore.EpochTimeEncoder,
 			EncodeDuration: zapcore.SecondsDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
 		},
 	}
 
@@ -39,13 +49,13 @@ func NewLogger(name string, opts ...Option) (logr.Logger, error) {
 		return logr.Discard(), err
 	}
 
-	logger := zapr.NewLogger(zaplog).WithName(name)
+	logger := zapr.NewLogger(zaplog).WithName(loggerName)
 
 	return logger, nil
 }
 
-func NewLoggerWithContext(ctx context.Context, name string, opts ...Option) (context.Context, logr.Logger, error) {
-	logger, err := NewLogger(name, opts...)
+func NewLoggerWithContext(ctx context.Context, loggerName string, opts ...Option) (context.Context, logr.Logger, error) {
+	logger, err := NewLogger(loggerName, opts...)
 	if err != nil {
 		return ctx, logger, err
 	}

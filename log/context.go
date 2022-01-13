@@ -3,25 +3,24 @@ package log
 import (
 	"context"
 
-	"go.uber.org/zap"
+	"github.com/go-logr/logr"
 )
 
-var defaultLogger = zap.NewNop()
+var defaultLogger = logr.Discard()
 
-func SetDefaultLogger(logger *zap.Logger) {
+func SetDefaultLogger(logger logr.Logger) {
 	defaultLogger = logger
 }
 
-var loggerKey = struct{}{}
-
-func WithContext(ctx context.Context, logger *zap.Logger) context.Context {
-	return context.WithValue(ctx, loggerKey, logger)
+func WithContext(ctx context.Context, logger logr.Logger) context.Context {
+	return logr.NewContext(ctx, logger)
 }
 
-func FromContext(ctx context.Context) *zap.Logger {
-	if logger, ok := ctx.Value(loggerKey).(*zap.Logger); ok {
-		return logger
+func FromContext(ctx context.Context) logr.Logger {
+	logger, err := logr.FromContext(ctx)
+	if err != nil {
+		return defaultLogger
 	}
 
-	return defaultLogger
+	return logger
 }

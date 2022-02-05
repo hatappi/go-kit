@@ -17,6 +17,22 @@ func WithInitialFields(fields map[string]interface{}) Option {
 	}
 }
 
+// WithOutputPaths sets output paths.
+//  e.g. stdout, /tmp/output.log
+func WithOutputPaths(paths []string) Option {
+	return func(conf *zap.Config) {
+		conf.OutputPaths = paths
+	}
+}
+
+// WithErrorOutputPaths sets error paths.
+//  e.g. stderr, /tmp/error.log
+func WithErrorOutputPaths(paths []string) Option {
+	return func(conf *zap.Config) {
+		conf.ErrorOutputPaths = paths
+	}
+}
+
 func NewLogger(loggerName string, opts ...Option) (logr.Logger, error) {
 	config := zap.Config{
 		Development:      false,

@@ -33,6 +33,13 @@ func WithErrorOutputPaths(paths []string) Option {
 	}
 }
 
+// WithLevel sets log level.
+func WithLevel(lvl zapcore.Level) Option {
+	return func(conf *zap.Config) {
+		conf.Level = zap.NewAtomicLevelAt(lvl)
+	}
+}
+
 func NewLogger(loggerName string, opts ...Option) (logr.Logger, error) {
 	config := zap.Config{
 		Development:      false,

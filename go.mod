@@ -8,7 +8,7 @@ require (
 	github.com/go-logr/zapr v1.2.2
 	github.com/google/go-cmp v0.5.6
 	github.com/hashicorp/go-retryablehttp v0.7.1
-	go.uber.org/zap v1.19.0
+	go.uber.org/zap v1.23.0
 )
 
 require (

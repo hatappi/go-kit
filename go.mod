@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/aws/aws-sdk-go v1.44.115
-	github.com/go-logr/logr v1.2.2
+	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/zapr v1.2.2
 	github.com/google/go-cmp v0.5.6
 	github.com/hashicorp/go-retryablehttp v0.7.1

@@ -7,6 +7,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+
+	"github.com/hatappi/go-kit/storage/option"
 )
 
 type Disk struct {
@@ -19,7 +21,12 @@ func NewDisk(root string) *Disk {
 	}
 }
 
-func (d *Disk) Save(ctx context.Context, filePath string, data []byte) (string, error) {
+func (d *Disk) Save(ctx context.Context, filePath string, data []byte, opts ...option.SaveOptionFunc) (string, error) {
+	var saveOpt option.SaveOption
+	for _, opt := range opts {
+		opt(&saveOpt)
+	}
+
 	fullPath := d.fileFullPath(filePath)
 
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {

@@ -12,6 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+
+	"github.com/hatappi/go-kit/storage/option"
 )
 
 type S3 struct {
@@ -34,13 +36,21 @@ func NewS3(bucketName string, prefixPath string, region string) (*S3, error) {
 	}, nil
 }
 
-func (s *S3) Save(ctx context.Context, filePath string, data []byte) (string, error) {
+func (s *S3) Save(ctx context.Context, filePath string, data []byte, opts ...option.SaveOptionFunc) (string, error) {
+	var saveOpt option.SaveOption
+	for _, opt := range opts {
+		opt(&saveOpt)
+	}
+
 	key := s.objectKey(filePath)
 
 	input := &s3.PutObjectInput{
 		Body:   bytes.NewReader(data),
 		Bucket: aws.String(s.bucketName),
 		Key:    aws.String(key),
+	}
+	if saveOpt.ContentType != nil {
+		input.ContentType = saveOpt.ContentType
 	}
 
 	if _, err := s.s3Service.PutObjectWithContext(ctx, input); err != nil {

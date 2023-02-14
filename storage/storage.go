@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hatappi/go-kit/storage/option"
 	"github.com/hatappi/go-kit/storage/provider"
 )
 
 type Storage interface {
-	Save(ctx context.Context, filePath string, data []byte) (string, error)
+	Save(ctx context.Context, filePath string, data []byte, opts ...option.SaveOptionFunc) (string, error)
 	Get(ctx context.Context, filePath string) ([]byte, error)
 	Delete(ctx context.Context, filePath string) error
 	Ping(ctx context.Context) error

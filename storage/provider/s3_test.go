@@ -69,7 +69,7 @@ func TestS3Save(t *testing.T) {
 				return &s3.PutObjectOutput{}, nil
 			},
 			wantErr:       false,
-			wantSavedPath: "test_prefix/foo",
+			wantSavedPath: "s3://test_bucket/test_prefix/foo",
 		},
 		{
 			name: "fail",

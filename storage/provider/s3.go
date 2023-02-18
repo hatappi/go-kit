@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"path"
 
@@ -56,8 +57,9 @@ func (s *S3) Save(ctx context.Context, filePath string, data []byte, opts ...opt
 	if _, err := s.s3Service.PutObjectWithContext(ctx, input); err != nil {
 		return "", err
 	}
+	uri := fmt.Sprintf("s3://%s/%s", s.bucketName, key)
 
-	return key, nil
+	return uri, nil
 }
 
 func (s *S3) Get(ctx context.Context, filePath string) ([]byte, error) {

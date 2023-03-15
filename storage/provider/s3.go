@@ -53,6 +53,9 @@ func (s *S3) Save(ctx context.Context, filePath string, data []byte, opts ...opt
 	if saveOpt.ContentType != nil {
 		input.ContentType = saveOpt.ContentType
 	}
+	if saveOpt.ContentDisposition != nil {
+		input.SetContentDisposition(*saveOpt.ContentType)
+	}
 
 	if _, err := s.s3Service.PutObjectWithContext(ctx, input); err != nil {
 		return "", err

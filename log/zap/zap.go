@@ -18,7 +18,8 @@ func WithInitialFields(fields map[string]interface{}) Option {
 }
 
 // WithOutputPaths sets output paths.
-//  e.g. stdout, /tmp/output.log
+//
+//	e.g. stdout, /tmp/output.log
 func WithOutputPaths(paths []string) Option {
 	return func(conf *zap.Config) {
 		conf.OutputPaths = paths
@@ -26,7 +27,8 @@ func WithOutputPaths(paths []string) Option {
 }
 
 // WithErrorOutputPaths sets error paths.
-//  e.g. stderr, /tmp/error.log
+//
+//	e.g. stderr, /tmp/error.log
 func WithErrorOutputPaths(paths []string) Option {
 	return func(conf *zap.Config) {
 		conf.ErrorOutputPaths = paths
@@ -38,6 +40,39 @@ func WithLevel(lvl zapcore.Level) Option {
 	return func(conf *zap.Config) {
 		conf.Level = zap.NewAtomicLevelAt(lvl)
 	}
+}
+
+func New(loggerName string, opts ...Option) (*zap.Logger, error) {
+	config := zap.Config{
+		Development:      false,
+		Level:            zap.NewAtomicLevelAt(zap.InfoLevel),
+		Encoding:         "json",
+		OutputPaths:      []string{"stdout"},
+		ErrorOutputPaths: []string{"stderr"},
+		EncoderConfig: zapcore.EncoderConfig{
+			TimeKey:        "ts",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			FunctionKey:    zapcore.OmitKey,
+			MessageKey:     "message",
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.LowercaseLevelEncoder,
+			EncodeTime:     zapcore.EpochTimeEncoder,
+			EncodeDuration: zapcore.SecondsDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
+		},
+		InitialFields: map[string]interface{}{},
+	}
+
+	for _, o := range opts {
+		o(&config)
+	}
+
+	config.InitialFields["logger_name"] = loggerName
+
+	return config.Build()
 }
 
 func NewLogger(loggerName string, opts ...Option) (logr.Logger, error) {

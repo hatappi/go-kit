@@ -5,33 +5,38 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"path"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/hatappi/go-kit/storage/option"
 )
+
+type S3API interface {
+	PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+	DeleteObject(ctx context.Context, params *s3.DeleteObjectInput, optFns ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
+}
 
 type S3 struct {
 	bucketName string
 	prefixPath string
 
-	s3Service s3iface.S3API
+	s3Client S3API
 }
 
-func NewS3(bucketName string, prefixPath string, region string) (*S3, error) {
-	sess, err := session.NewSession()
+func NewS3(ctx context.Context, bucketName string, prefixPath string, region string) (*S3, error) {
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
 	if err != nil {
 		return nil, err
 	}
 
 	return &S3{
-		s3Service:  s3.New(sess, aws.NewConfig().WithRegion(region)),
+		s3Client:   s3.NewFromConfig(cfg),
 		bucketName: bucketName,
 		prefixPath: prefixPath,
 	}, nil
@@ -54,10 +59,10 @@ func (s *S3) Save(ctx context.Context, filePath string, data []byte, opts ...opt
 		input.ContentType = saveOpt.ContentType
 	}
 	if saveOpt.ContentDisposition != nil {
-		input.SetContentDisposition(*saveOpt.ContentDisposition)
+		input.ContentDisposition = saveOpt.ContentDisposition
 	}
 
-	if _, err := s.s3Service.PutObjectWithContext(ctx, input); err != nil {
+	if _, err := s.s3Client.PutObject(ctx, input); err != nil {
 		return "", err
 	}
 	uri := fmt.Sprintf("s3://%s/%s", s.bucketName, key)
@@ -73,20 +78,18 @@ func (s *S3) Get(ctx context.Context, filePath string) ([]byte, error) {
 		Key:    aws.String(key),
 	}
 
-	o, err := s.s3Service.GetObjectWithContext(ctx, input)
+	o, err := s.s3Client.GetObject(ctx, input)
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case s3.ErrCodeNoSuchKey:
-				return nil, nil
-			}
+		var nsk *types.NoSuchKey
+		if errors.As(err, &nsk) {
+			return nil, nil
 		}
 
 		return nil, err
 	}
 	defer o.Body.Close()
 
-	resBody, err := ioutil.ReadAll(o.Body)
+	resBody, err := io.ReadAll(o.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +105,7 @@ func (s *S3) Delete(ctx context.Context, filePath string) error {
 		Key:    aws.String(key),
 	}
 
-	if _, err := s.s3Service.DeleteObjectWithContext(ctx, input); err != nil {
+	if _, err := s.s3Client.DeleteObject(ctx, input); err != nil {
 		return err
 	}
 
@@ -144,13 +147,11 @@ func (s *S3) exist(ctx context.Context, filePath string) (bool, error) {
 		Key:    aws.String(key),
 	}
 
-	_, err := s.s3Service.GetObjectWithContext(ctx, input)
+	_, err := s.s3Client.GetObject(ctx, input)
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case s3.ErrCodeNoSuchKey:
-				return false, nil
-			}
+		var nsk *types.NoSuchKey
+		if errors.As(err, &nsk) {
+			return false, nil
 		}
 
 		return false, err

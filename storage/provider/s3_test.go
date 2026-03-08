@@ -7,32 +7,28 @@ import (
 	"io"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 type mockS3Client struct {
-	s3iface.S3API
-
-	mockPutObjectWithContext    func(aws.Context, *s3.PutObjectInput, ...request.Option) (*s3.PutObjectOutput, error)
-	mockGetObjectWithContext    func(aws.Context, *s3.GetObjectInput, ...request.Option) (*s3.GetObjectOutput, error)
-	mockDeleteObjectWithContext func(aws.Context, *s3.DeleteObjectInput, ...request.Option) (*s3.DeleteObjectOutput, error)
+	mockPutObject    func(context.Context, *s3.PutObjectInput, ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+	mockGetObject    func(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+	mockDeleteObject func(context.Context, *s3.DeleteObjectInput, ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
 }
 
-func (m *mockS3Client) PutObjectWithContext(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
-	return m.mockPutObjectWithContext(ctx, input, opts...)
+func (m *mockS3Client) PutObject(ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
+	return m.mockPutObject(ctx, input, opts...)
 }
 
-func (m *mockS3Client) GetObjectWithContext(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
-	return m.mockGetObjectWithContext(ctx, input, opts...)
+func (m *mockS3Client) GetObject(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
+	return m.mockGetObject(ctx, input, opts...)
 }
 
-func (m *mockS3Client) DeleteObjectWithContext(ctx aws.Context, input *s3.DeleteObjectInput, opts ...request.Option) (*s3.DeleteObjectOutput, error) {
-	return m.mockDeleteObjectWithContext(ctx, input, opts...)
+func (m *mockS3Client) DeleteObject(ctx context.Context, input *s3.DeleteObjectInput, opts ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) {
+	return m.mockDeleteObject(ctx, input, opts...)
 }
 
 func TestS3Save(t *testing.T) {
@@ -42,11 +38,11 @@ func TestS3Save(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                     string
-		args                     args
-		mockPutObjectWithContext func(aws.Context, *s3.PutObjectInput, ...request.Option) (*s3.PutObjectOutput, error)
-		wantSavedPath            string
-		wantErr                  bool
+		name          string
+		args          args
+		mockPutObject func(context.Context, *s3.PutObjectInput, ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+		wantSavedPath string
+		wantErr       bool
 	}{
 		{
 			name: "success",
@@ -54,15 +50,14 @@ func TestS3Save(t *testing.T) {
 				filepath: "foo",
 				data:     []byte("test"),
 			},
-			mockPutObjectWithContext: func(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
+			mockPutObject: func(ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
 				expected := &s3.PutObjectInput{
 					Body:   bytes.NewReader([]byte("test")),
 					Bucket: aws.String("test_bucket"),
 					Key:    aws.String("test_prefix/foo"),
 				}
 
-				opt := cmpopts.IgnoreFields(s3.PutObjectInput{}, "Body")
-				if d := cmp.Diff(*expected, *input, opt); d != "" {
+				if d := cmp.Diff(*expected, *input, cmpopts.IgnoreFields(s3.PutObjectInput{}, "Body"), cmpopts.IgnoreUnexported(s3.PutObjectInput{})); d != "" {
 					t.Fatalf("unexpected input. %s", d)
 				}
 
@@ -77,7 +72,7 @@ func TestS3Save(t *testing.T) {
 				filepath: "foo",
 				data:     []byte("test"),
 			},
-			mockPutObjectWithContext: func(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
+			mockPutObject: func(ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
 				return &s3.PutObjectOutput{}, fmt.Errorf("error")
 			},
 			wantErr:       true,
@@ -92,8 +87,8 @@ func TestS3Save(t *testing.T) {
 			s3Provider := &S3{
 				bucketName: "test_bucket",
 				prefixPath: "test_prefix",
-				s3Service: &mockS3Client{
-					mockPutObjectWithContext: tc.mockPutObjectWithContext,
+				s3Client: &mockS3Client{
+					mockPutObject: tc.mockPutObject,
 				},
 			}
 
@@ -116,24 +111,24 @@ func TestS3Get(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                     string
-		args                     args
-		mockGetObjectWithContext func(aws.Context, *s3.GetObjectInput, ...request.Option) (*s3.GetObjectOutput, error)
-		wantBody                 []byte
-		wantErr                  bool
+		name          string
+		args          args
+		mockGetObject func(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+		wantBody      []byte
+		wantErr       bool
 	}{
 		{
 			name: "success",
 			args: args{
 				filepath: "foo",
 			},
-			mockGetObjectWithContext: func(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
+			mockGetObject: func(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
 				expected := &s3.GetObjectInput{
 					Bucket: aws.String("test_bucket"),
 					Key:    aws.String("test_prefix/foo"),
 				}
 
-				if d := cmp.Diff(*expected, *input); d != "" {
+				if d := cmp.Diff(*expected, *input, cmpopts.IgnoreUnexported(s3.GetObjectInput{})); d != "" {
 					t.Fatalf("unexpected input. %s", d)
 				}
 
@@ -149,7 +144,7 @@ func TestS3Get(t *testing.T) {
 			args: args{
 				filepath: "foo",
 			},
-			mockGetObjectWithContext: func(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
+			mockGetObject: func(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
 				return nil, fmt.Errorf("error")
 			},
 			wantErr:  true,
@@ -164,8 +159,8 @@ func TestS3Get(t *testing.T) {
 			s3Provider := &S3{
 				bucketName: "test_bucket",
 				prefixPath: "test_prefix",
-				s3Service: &mockS3Client{
-					mockGetObjectWithContext: tc.mockGetObjectWithContext,
+				s3Client: &mockS3Client{
+					mockGetObject: tc.mockGetObject,
 				},
 			}
 
@@ -188,23 +183,23 @@ func TestS3Delete(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                        string
-		args                        args
-		mockDeleteObjectWithContext func(aws.Context, *s3.DeleteObjectInput, ...request.Option) (*s3.DeleteObjectOutput, error)
-		wantErr                     bool
+		name             string
+		args             args
+		mockDeleteObject func(context.Context, *s3.DeleteObjectInput, ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
+		wantErr          bool
 	}{
 		{
 			name: "success",
 			args: args{
 				filepath: "foo",
 			},
-			mockDeleteObjectWithContext: func(ctx aws.Context, input *s3.DeleteObjectInput, opts ...request.Option) (*s3.DeleteObjectOutput, error) {
+			mockDeleteObject: func(ctx context.Context, input *s3.DeleteObjectInput, opts ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) {
 				expected := &s3.DeleteObjectInput{
 					Bucket: aws.String("test_bucket"),
 					Key:    aws.String("test_prefix/foo"),
 				}
 
-				if d := cmp.Diff(*expected, *input); d != "" {
+				if d := cmp.Diff(*expected, *input, cmpopts.IgnoreUnexported(s3.DeleteObjectInput{})); d != "" {
 					t.Fatalf("unexpected input. %s", d)
 				}
 
@@ -217,7 +212,7 @@ func TestS3Delete(t *testing.T) {
 			args: args{
 				filepath: "foo",
 			},
-			mockDeleteObjectWithContext: func(ctx aws.Context, input *s3.DeleteObjectInput, opts ...request.Option) (*s3.DeleteObjectOutput, error) {
+			mockDeleteObject: func(ctx context.Context, input *s3.DeleteObjectInput, opts ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) {
 				return nil, fmt.Errorf("error")
 			},
 			wantErr: true,
@@ -231,8 +226,8 @@ func TestS3Delete(t *testing.T) {
 			s3Provider := &S3{
 				bucketName: "test_bucket",
 				prefixPath: "test_prefix",
-				s3Service: &mockS3Client{
-					mockDeleteObjectWithContext: tc.mockDeleteObjectWithContext,
+				s3Client: &mockS3Client{
+					mockDeleteObject: tc.mockDeleteObject,
 				},
 			}
 
@@ -247,35 +242,34 @@ func TestS3Delete(t *testing.T) {
 
 func TestS3Ping(t *testing.T) {
 	testCases := []struct {
-		name                        string
-		mockPutObjectWithContext    func(aws.Context, *s3.PutObjectInput, ...request.Option) (*s3.PutObjectOutput, error)
-		mockGetObjectWithContext    func(aws.Context, *s3.GetObjectInput, ...request.Option) (*s3.GetObjectOutput, error)
-		mockDeleteObjectWithContext func(aws.Context, *s3.DeleteObjectInput, ...request.Option) (*s3.DeleteObjectOutput, error)
-		wantErr                     bool
+		name             string
+		mockPutObject    func(context.Context, *s3.PutObjectInput, ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+		mockGetObject    func(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+		mockDeleteObject func(context.Context, *s3.DeleteObjectInput, ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
+		wantErr          bool
 	}{
 		{
 			name: "success",
-			mockPutObjectWithContext: func(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
+			mockPutObject: func(ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
 				expected := &s3.PutObjectInput{
 					Body:   bytes.NewReader([]byte("test")),
 					Bucket: aws.String("test_bucket"),
 					Key:    aws.String("test_prefix/ping"),
 				}
 
-				opt := cmpopts.IgnoreFields(s3.PutObjectInput{}, "Body")
-				if d := cmp.Diff(*expected, *input, opt); d != "" {
+				if d := cmp.Diff(*expected, *input, cmpopts.IgnoreFields(s3.PutObjectInput{}, "Body"), cmpopts.IgnoreUnexported(s3.PutObjectInput{})); d != "" {
 					t.Fatalf("unexpected input. %s", d)
 				}
 
 				return &s3.PutObjectOutput{}, nil
 			},
-			mockGetObjectWithContext: func(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
+			mockGetObject: func(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
 				expected := &s3.GetObjectInput{
 					Bucket: aws.String("test_bucket"),
 					Key:    aws.String("test_prefix/ping"),
 				}
 
-				if d := cmp.Diff(*expected, *input); d != "" {
+				if d := cmp.Diff(*expected, *input, cmpopts.IgnoreUnexported(s3.GetObjectInput{})); d != "" {
 					t.Fatalf("unexpected input. %s", d)
 				}
 
@@ -283,13 +277,13 @@ func TestS3Ping(t *testing.T) {
 					Body: io.NopCloser(bytes.NewReader([]byte("test"))),
 				}, nil
 			},
-			mockDeleteObjectWithContext: func(ctx aws.Context, input *s3.DeleteObjectInput, opts ...request.Option) (*s3.DeleteObjectOutput, error) {
+			mockDeleteObject: func(ctx context.Context, input *s3.DeleteObjectInput, opts ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) {
 				expected := &s3.DeleteObjectInput{
 					Bucket: aws.String("test_bucket"),
 					Key:    aws.String("test_prefix/ping"),
 				}
 
-				if d := cmp.Diff(*expected, *input); d != "" {
+				if d := cmp.Diff(*expected, *input, cmpopts.IgnoreUnexported(s3.DeleteObjectInput{})); d != "" {
 					t.Fatalf("unexpected input. %s", d)
 				}
 
@@ -299,55 +293,53 @@ func TestS3Ping(t *testing.T) {
 		},
 		{
 			name: "PutObject returns error",
-			mockPutObjectWithContext: func(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
+			mockPutObject: func(ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
 				return &s3.PutObjectOutput{}, fmt.Errorf("error")
 			},
 			wantErr: true,
 		},
 		{
 			name: "GetObject returns error",
-			mockPutObjectWithContext: func(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
+			mockPutObject: func(ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
 				expected := &s3.PutObjectInput{
 					Body:   bytes.NewReader([]byte("test")),
 					Bucket: aws.String("test_bucket"),
 					Key:    aws.String("test_prefix/ping"),
 				}
 
-				opt := cmpopts.IgnoreFields(s3.PutObjectInput{}, "Body")
-				if d := cmp.Diff(*expected, *input, opt); d != "" {
+				if d := cmp.Diff(*expected, *input, cmpopts.IgnoreFields(s3.PutObjectInput{}, "Body"), cmpopts.IgnoreUnexported(s3.PutObjectInput{})); d != "" {
 					t.Fatalf("unexpected input. %s", d)
 				}
 
 				return &s3.PutObjectOutput{}, nil
 			},
-			mockGetObjectWithContext: func(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
+			mockGetObject: func(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
 				return nil, fmt.Errorf("error")
 			},
 			wantErr: true,
 		},
 		{
 			name: "DeleteObject returns error",
-			mockPutObjectWithContext: func(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
+			mockPutObject: func(ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
 				expected := &s3.PutObjectInput{
 					Body:   bytes.NewReader([]byte("test")),
 					Bucket: aws.String("test_bucket"),
 					Key:    aws.String("test_prefix/ping"),
 				}
 
-				opt := cmpopts.IgnoreFields(s3.PutObjectInput{}, "Body")
-				if d := cmp.Diff(*expected, *input, opt); d != "" {
+				if d := cmp.Diff(*expected, *input, cmpopts.IgnoreFields(s3.PutObjectInput{}, "Body"), cmpopts.IgnoreUnexported(s3.PutObjectInput{})); d != "" {
 					t.Fatalf("unexpected input. %s", d)
 				}
 
 				return &s3.PutObjectOutput{}, nil
 			},
-			mockGetObjectWithContext: func(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
+			mockGetObject: func(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
 				expected := &s3.GetObjectInput{
 					Bucket: aws.String("test_bucket"),
 					Key:    aws.String("test_prefix/ping"),
 				}
 
-				if d := cmp.Diff(*expected, *input); d != "" {
+				if d := cmp.Diff(*expected, *input, cmpopts.IgnoreUnexported(s3.GetObjectInput{})); d != "" {
 					t.Fatalf("unexpected input. %s", d)
 				}
 
@@ -355,7 +347,7 @@ func TestS3Ping(t *testing.T) {
 					Body: io.NopCloser(bytes.NewReader([]byte("test"))),
 				}, nil
 			},
-			mockDeleteObjectWithContext: func(ctx aws.Context, input *s3.DeleteObjectInput, opts ...request.Option) (*s3.DeleteObjectOutput, error) {
+			mockDeleteObject: func(ctx context.Context, input *s3.DeleteObjectInput, opts ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) {
 				return nil, fmt.Errorf("error")
 			},
 			wantErr: true,
@@ -369,10 +361,10 @@ func TestS3Ping(t *testing.T) {
 			s3Provider := &S3{
 				bucketName: "test_bucket",
 				prefixPath: "test_prefix",
-				s3Service: &mockS3Client{
-					mockGetObjectWithContext:    tc.mockGetObjectWithContext,
-					mockPutObjectWithContext:    tc.mockPutObjectWithContext,
-					mockDeleteObjectWithContext: tc.mockDeleteObjectWithContext,
+				s3Client: &mockS3Client{
+					mockGetObject:    tc.mockGetObject,
+					mockPutObject:    tc.mockPutObject,
+					mockDeleteObject: tc.mockDeleteObject,
 				},
 			}
 

@@ -15,12 +15,12 @@ type Storage interface {
 	Ping(ctx context.Context) error
 }
 
-func NewStorage(serviceName string, conf *Config) (Storage, error) {
+func NewStorage(ctx context.Context, serviceName string, conf *Config) (Storage, error) {
 	switch conf.Type {
 	case StorageTypeDisk:
 		return provider.NewDisk(conf.Disk.RootDir), nil
 	case StorageTypeS3:
-		return provider.NewS3(conf.S3.BucketName, serviceName, conf.S3.Region)
+		return provider.NewS3(ctx, conf.S3.BucketName, serviceName, conf.S3.Region)
 	default:
 		return nil, fmt.Errorf("invalid storage type: %s", conf.Type)
 	}

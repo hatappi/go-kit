@@ -1,6 +1,9 @@
 package storage
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestNewStorage(t *testing.T) {
 	testCases := []struct {
@@ -47,7 +50,7 @@ func TestNewStorage(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := NewStorage("test", tc.config)
+			_, err := NewStorage(context.Background(), "test", tc.config)
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("err: %v", err)
 			}
